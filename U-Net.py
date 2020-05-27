@@ -1,12 +1,9 @@
 import tensorflow as tf
-from tensorflow import keras
 import os
 import numpy as np
 from tqdm import tqdm
-from skimage.io import imread, imshow
+from skimage.io import imread
 from skimage.transform import resize
-import matplotlib.pyplot as plt
-import random
 
 seed = 42
 np.random.seed = seed
