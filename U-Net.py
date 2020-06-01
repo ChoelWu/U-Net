@@ -98,7 +98,7 @@ def UNet(input_shape):
     con_4 = ContractingPathBlock(con_3, 1024)
 
     # expansive path
-    exp_4 = ExpansivePathBlock(bott, con_3, 512, 512)
+    exp_4 = ExpansivePathBlock(con_4, con_3, 512, 512)
     exp_3 = ExpansivePathBlock(exp_4, con_2, 256, 256)
     exp_2 = ExpansivePathBlock(exp_3, con_1, 128, 128)
     exp_1 = ExpansivePathBlock(exp_2, input_block, 64, 64)
