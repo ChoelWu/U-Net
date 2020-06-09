@@ -1,52 +1,22 @@
 import tensorflow as tf
-import os
 import numpy as np
-from tqdm import tqdm
-from skimage.io import imread
-from skimage.transform import resize
+from sklearn.metrics import f1_score
 
 seed = 42
 np.random.seed = seed
 
 # 样本图片大小
-IMG_WIDTH = 256
-IMG_HEIGHT = 256
+IMG_WIDTH = 565
+IMG_HEIGHT = 584
 IMG_CHANNELS = 3
 
 # 数据集路径
-DATA_PATH = '../data/bowl2018/'
+DATA_PATH = '../data/DRIVE/'
 
-# 数据加载
-TRAIN_PATH = DATA_PATH + 'stage1_train/'  # 训练集路径
-TEST_PATH = DATA_PATH + 'stage1_test/'  # 测试集路径
-
-train_ids = next(os.walk(TRAIN_PATH))[1]
-test_ids = next(os.walk(TEST_PATH))[1]
-
-# 构造训练集输入和输出（mask）
-X_train = np.zeros((len(train_ids), IMG_HEIGHT, IMG_WIDTH, IMG_CHANNELS), dtype=np.uint8)
-Y_train = np.zeros((len(train_ids), IMG_HEIGHT, IMG_WIDTH, 1), dtype=np.bool)
-for n, id_ in tqdm(enumerate(train_ids), total=len(train_ids)):
-    path = TRAIN_PATH + id_
-    img = imread(path + '/images/' + id_ + '.png')[:, :, :IMG_CHANNELS]
-    img = resize(img, (IMG_HEIGHT, IMG_WIDTH), mode='constant', preserve_range=True)
-    X_train[n] = img  # Fill empty X_train with values from img
-    mask = np.zeros((IMG_HEIGHT, IMG_WIDTH, 1), dtype=np.bool)
-    # mask
-    for mask_file in next(os.walk(path + '/masks/'))[2]:  # os.walk()文件、目录遍历器,在目录树中游走输出在目录中的文件名
-        mask_ = imread(path + '/masks/' + mask_file)
-        mask_ = np.expand_dims(resize(mask_, (IMG_HEIGHT, IMG_WIDTH), mode='constant', preserve_range=True), axis=-1)
-        mask = np.maximum(mask, mask_)
-
-    Y_train[n] = mask
-
-# 构造测试集输入
-X_test = np.zeros((len(test_ids), IMG_HEIGHT, IMG_WIDTH, IMG_CHANNELS), dtype=np.uint8)
-for n, id_ in tqdm(enumerate(test_ids), total=len(test_ids)):
-    path = TEST_PATH + id_
-    img = imread(path + '/images/' + id_ + '.png')[:, :, :IMG_CHANNELS]
-    img = resize(img, (IMG_HEIGHT, IMG_WIDTH), mode='constant', preserve_range=True)
-    X_test[n] = img
+X_train = np.load(DATA_PATH + 'X_train.npy')
+Y_train = np.load(DATA_PATH + 'Y_train.npy')
+X_test = np.load(DATA_PATH + 'X_test.npy')
+Y_test = np.load(DATA_PATH + 'Y_test.npy')
 
 inputs = tf.keras.layers.Input((IMG_HEIGHT, IMG_WIDTH, IMG_CHANNELS))
 s = tf.keras.layers.Lambda(lambda x: x / 255)(inputs)
@@ -66,7 +36,7 @@ def ContractingPathBlock(input, filters, kernel_size=3, strides=1, padding='same
     conv_1 = tf.keras.layers.Conv2D(filters=filters, kernel_size=kernel_size, strides=strides, padding=padding,
                                     activation='relu')(down_sampling)  # 卷积块1
     return tf.keras.layers.Conv2D(filters=filters, kernel_size=kernel_size, strides=strides, padding=padding,
-                                    activation='relu')(conv_1)  # 卷积块2
+                                  activation='relu')(conv_1)  # 卷积块2
 
 
 # 扩张（恢复）路径模块
@@ -74,6 +44,10 @@ def ExpansivePathBlock(input, con_feature, filters, tran_filters, kernel_size=3,
                        tran_strides=2, padding='same', tran_padding='same'):
     upsampling = tf.keras.layers.Conv2DTranspose(filters=tran_filters, kernel_size=tran_kernel_size,
                                                  strides=tran_strides, padding=tran_padding)(input)  # 上采样（转置卷积方式）
+
+    padding_h = (con_feature.shape)[1] - (upsampling.shape)[1]
+    padding_w = (con_feature.shape)[2] - (upsampling.shape)[2]
+    upsampling = img = tf.pad(upsampling, ((0, 0), (0, padding_h), (0, padding_w), (0, 0)), 'constant')
     con_feature = tf.image.resize(con_feature, ((upsampling.shape)[1], (upsampling.shape)[2]),
                                   method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # 裁剪需要拼接的特征图
     concat_feature = tf.concat([con_feature, upsampling], axis=3)  # 拼接扩张层和收缩层的特征图（skip connection）
@@ -108,8 +82,14 @@ def UNet(input_shape):
     return tf.keras.Model(inputs=[inputs], outputs=[outputs])
 
 
-model = UNet(input_shape=(IMG_WIDTH, IMG_HEIGHT, IMG_CHANNELS))
+model = UNet(input_shape=(IMG_HEIGHT, IMG_WIDTH, IMG_CHANNELS))
 model.summary()
 
 model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 results = model.fit(X_train, Y_train, batch_size=10, epochs=10)
+
+Y_pred = model.predict(X_test, batch_size=5, verbose=1)
+Y_pred = np.array(Y_pred > 0, dtype="int").flatten()
+Y_test = np.array(Y_test, dtype="int").flatten()
+F1 = f1_score(Y_test, Y_pred, labels=None, average='binary', sample_weight=None)
+print(">> F1-Score = {:.2f}%".format(np.mean(F1 * 100)))
