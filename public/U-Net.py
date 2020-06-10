@@ -11,7 +11,7 @@ IMG_HEIGHT = 584
 IMG_CHANNELS = 3
 
 # 数据集路径
-DATA_PATH = '../data/DRIVE/'
+DATA_PATH = '../../data/DRIVE/'
 
 X_train = np.load(DATA_PATH + 'X_train.npy')
 Y_train = np.load(DATA_PATH + 'Y_train.npy')
