@@ -21,27 +21,9 @@ data_gen_args = dict(rotation_range=0.2,
                      zoom_range=0.05,
                      horizontal_flip=True,
                      fill_mode='nearest')
-myGene = trainGenerator(2, '', 'images', '1st_manual', data_gen_args, save_to_dir=None)
+
+myGene = trainGenerator(X_train, Y_train, data_gen_args)
 
 model = unet.UNet(input_shape=(IMG_HEIGHT, IMG_WIDTH, IMG_CHANNELS))
 model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-# model.fit_generator(myGene, steps_per_epoch=300, epochs=1)
-datagen = ImageDataGenerator(
-    rotation_range=0.2,
-    width_shift_range=0.05,
-    height_shift_range=0.05,
-    shear_range=0.05,
-    zoom_range=0.05,
-    horizontal_flip=True,
-    fill_mode='nearest'
-)
-model.fit_generator(
-    datagen.flow(x=X_train, y=Y_train, batch_size=1),
-    steps_per_epoch=300,
-    epochs=10,
-    # validation_data=(test_img_list,test_label_list),
-)
-
-# testGene = testGenerator("data/membrane/test")
-# results = model.predict_generator(testGene,30,verbose=1)
-# saveResult("data/membrane/test",results)
+model.fit_generator(myGene, steps_per_epoch=300, epochs=1)
