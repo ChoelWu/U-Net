@@ -1,8 +1,4 @@
 import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import layers
-from tensorflow.keras.layers import *
-import numpy as np
 
 
 # UNet输入模块
@@ -30,7 +26,7 @@ def ExpansivePathBlock(input, con_feature, filters, tran_filters, kernel_size=3,
 
     padding_h = (con_feature.shape)[1] - (upsampling.shape)[1]
     padding_w = (con_feature.shape)[2] - (upsampling.shape)[2]
-    upsampling = img = tf.pad(upsampling, ((0, 0), (0, padding_h), (0, padding_w), (0, 0)), 'constant')
+    upsampling = tf.pad(upsampling, ((0, 0), (0, padding_h), (0, padding_w), (0, 0)), 'constant')
     con_feature = tf.image.resize(con_feature, ((upsampling.shape)[1], (upsampling.shape)[2]),
                                   method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # 裁剪需要拼接的特征图
     concat_feature = tf.concat([con_feature, upsampling], axis=3)  # 拼接扩张层和收缩层的特征图（skip connection）
@@ -43,10 +39,9 @@ def ExpansivePathBlock(input, con_feature, filters, tran_filters, kernel_size=3,
 # UNet网络架构
 def UNet(input_shape):
     inputs = tf.keras.layers.Input(input_shape)
-    s = tf.keras.layers.Lambda(lambda x: x / 255)(inputs)
 
     # input block
-    input_block = InputBlock(s, 64)
+    input_block = InputBlock(inputs, 64)
 
     # contracting path
     con_1 = ContractingPathBlock(input_block, 128)
@@ -60,6 +55,6 @@ def UNet(input_shape):
     exp_2 = ExpansivePathBlock(exp_3, con_1, 128, 128)
     exp_1 = ExpansivePathBlock(exp_2, input_block, 64, 64)
 
-    outputs = tf.keras.layers.Conv2D(1, 1)(exp_1)  # 最终输出
+    outputs = tf.keras.layers.Conv2D(1, 1, activation='sigmoid')(exp_1)
 
     return tf.keras.Model(inputs=[inputs], outputs=[outputs])
